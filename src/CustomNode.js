@@ -1,0 +1,239 @@
+import React, { useState, useEffect } from 'react';
+import { Handle } from '@xyflow/react';
+
+const CustomNode = ({ data }) => {
+  const [fields, setFields] = useState({
+    title: data.title || '',
+    ponOp: data.ponOp || '',
+    deviceType: data.deviceType || '',
+    splitterType: data.splitterType || '',
+    outputOp: data.outputOp || '',
+    currentOp: data.currentOp || '',
+    distance: data.distance || '',
+    fms: data.fms || '',
+    fmsPort: data.fmsPort || '',
+    description: data.description || '',
+  });
+
+  const [showSplitterOptions, setShowSplitterOptions] = useState(false);
+  const [showDeviceOptions, setShowDeviceOptions] = useState(false);
+
+  useEffect(() => {
+    // Initialize state based on passed data
+    if (data.deviceType === 'Splitter') {
+      setShowSplitterOptions(true);
+      setShowDeviceOptions(false);
+    } else if (data.deviceType === 'Device') {
+      setShowSplitterOptions(false);
+      setShowDeviceOptions(true);
+    }
+  }, [data.deviceType]);
+
+  const handleFieldChange = (e) => {
+    const { name, value } = e.target;
+    setFields((prevFields) => ({ ...prevFields, [name]: value }));
+
+    if (data.onUpdate) {
+      data.onUpdate({ ...fields, [name]: value });
+    }
+  };
+
+  const handleDeviceTypeChange = (e) => {
+    const { value } = e.target;
+    
+    if (value === 'Splitter') {
+      setShowSplitterOptions(true);
+      setShowDeviceOptions(false);
+    } else if (value === 'Device') {
+      setShowSplitterOptions(false);
+      setShowDeviceOptions(true);
+    } else {
+      setShowSplitterOptions(false);
+      setShowDeviceOptions(false);
+    }
+
+    handleFieldChange(e);
+  };
+
+  const handleSplitterChange = (e) => {
+    handleFieldChange(e);
+    
+    if (data.onSplitterSelect) {
+      console.log("Splitter selected, node ID:", data.id);
+      const selectedValue = e.target.value;
+      const numChildren = 
+        selectedValue === '1/2' ? 2 :
+        selectedValue === '1/4' ? 4 :
+        selectedValue === '1/8' ? 8 :
+        selectedValue === '1/16' ? 16 : 0;
+      
+      data.onSplitterSelect(e, data.id, numChildren, selectedValue);
+    } else {
+      console.error("onSplitterSelect callback is not defined");
+    }
+  };
+
+  const handleDeviceSelect = (e) => {
+    handleFieldChange(e);
+    
+    if (data.onDeviceSelect) {
+      data.onDeviceSelect(e, data.id, e.target.value);
+    }
+  };
+
+  // Simple node - just label and clickable
+  if (data.nodeType === 'simple') {
+    const handleClick = () => {
+      console.log("Node clicked - id:", data.id);
+      if (data.onClick) {
+        data.onClick(data.id);
+      }
+    };
+    
+    return (
+      <div
+        style={{ 
+          padding: 10, 
+          border: '1px solid black', 
+          borderRadius: 5, 
+          width: '150px',
+          backgroundColor: data.color || '#ffffff',
+          cursor: 'pointer'
+        }}
+        onClick={handleClick}
+      >
+        <div style={{fontSize: '14px', textAlign: 'center', fontWeight: 'bold'}}>{data.label}</div>
+        <Handle type="target" position="top" />
+        <Handle type="source" position="bottom" />
+      </div>
+    );
+  }
+
+  // Detailed node with form fields
+  return (
+    <div
+      style={{ 
+        padding: 10, 
+        border: '1px solid black', 
+        borderRadius: 5, 
+        width: '200px',
+        backgroundColor: '#f0f0f0' 
+      }}
+    >
+      <div style={{fontSize: '14px', fontWeight: 'bold', marginBottom: '5px'}}>{data.label}</div>
+      
+      <div style={{fontSize: '12px', marginBottom: '3px'}}>PON OP:</div>
+      <input
+        type="text"
+        name="ponOp"
+        value={fields.ponOp}
+        onChange={handleFieldChange}
+        style={{ marginBottom: '5px', width: '100%', padding: '2px', fontSize: '11px' }}
+      />
+
+      <div style={{fontSize: '12px', marginBottom: '3px'}}>Device Type:</div>
+      <select
+        name="deviceType"
+        value={fields.deviceType}
+        onChange={handleDeviceTypeChange}
+        style={{ marginBottom: '5px', width: '100%', padding: '2px', fontSize: '11px' }}
+      >
+        <option value="" disabled>Select type</option>
+        <option value="Splitter">Splitter</option>
+        <option value="Device">Device</option>
+      </select>
+
+      {showSplitterOptions && (
+        <>
+          <div style={{fontSize: '12px', marginBottom: '3px'}}>Splitter Ratio:</div>
+          <select
+            name="splitterType"
+            value={fields.splitterType}
+            onChange={handleSplitterChange}
+            style={{ marginBottom: '5px', width: '100%', padding: '2px', fontSize: '11px' }}
+          >
+            <option value="" disabled>Select ratio</option>
+            <option value="1/2">1/2</option>
+            <option value="1/4">1/4</option>
+            <option value="1/8">1/8</option>
+            <option value="1/16">1/16</option>
+          </select>
+        </>
+      )}
+
+      {showDeviceOptions && (
+        <>
+          <div style={{fontSize: '12px', marginBottom: '3px'}}>Device:</div>
+          <select
+            name="deviceModel"
+            value={fields.deviceModel}
+            onChange={handleDeviceSelect}
+            style={{ marginBottom: '5px', width: '100%', padding: '2px', fontSize: '11px' }}
+          >
+            <option value="" disabled>Select device</option>
+            <option value="ONU">ONU</option>
+            <option value="ONT">ONT</option>
+          </select>
+        </>
+      )}
+
+      <div style={{fontSize: '12px', marginBottom: '3px'}}>Output OP:</div>
+      <input
+        type="text"
+        name="outputOp"
+        value={fields.outputOp}
+        onChange={handleFieldChange}
+        style={{ marginBottom: '5px', width: '100%', padding: '2px', fontSize: '11px' }}
+      />
+
+      <div style={{fontSize: '12px', marginBottom: '3px'}}>Current OP:</div>
+      <input
+        type="text"
+        name="currentOp"
+        value={fields.currentOp}
+        onChange={handleFieldChange}
+        style={{ marginBottom: '5px', width: '100%', padding: '2px', fontSize: '11px' }}
+      />
+
+      <div style={{fontSize: '12px', marginBottom: '3px'}}>Distance (m):</div>
+      <input
+        type="text"
+        name="distance"
+        value={fields.distance}
+        onChange={handleFieldChange}
+        style={{ marginBottom: '5px', width: '100%', padding: '2px', fontSize: '11px' }}
+      />
+
+      <div style={{fontSize: '12px', marginBottom: '3px'}}>FMS:</div>
+      <input
+        type="text"
+        name="fms"
+        value={fields.fms}
+        onChange={handleFieldChange}
+        style={{ marginBottom: '5px', width: '100%', padding: '2px', fontSize: '11px' }}
+      />
+
+      <div style={{fontSize: '12px', marginBottom: '3px'}}>FMS PORT:</div>
+      <input
+        type="text"
+        name="fmsPort"
+        value={fields.fmsPort}
+        onChange={handleFieldChange}
+        style={{ marginBottom: '5px', width: '100%', padding: '2px', fontSize: '11px' }}
+      />
+
+      <div style={{fontSize: '12px', marginBottom: '3px'}}>Description:</div>
+      <textarea
+        name="description"
+        value={fields.description}
+        onChange={handleFieldChange}
+        style={{ marginBottom: '5px', width: '100%', padding: '2px', fontSize: '11px', minHeight: '40px' }}
+      />
+
+      <Handle type="target" position="top" />
+      <Handle type="source" position="bottom" />
+    </div>
+  );
+};
+
+export default CustomNode;
