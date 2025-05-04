@@ -343,6 +343,68 @@ export const createDeviceHandler = (
   };
 };
 
+export const deleteNodeHandler = (
+  nodeId,
+  nodeStore,
+  nodes,
+  edges,
+  setNodes,
+  setEdges,
+  logState
+) => {
+  if (!nodeId) {
+    console.error("Cannot delete node: nodeId is undefined");
+    return;
+  }
+
+  // Check if the node exists
+  const nodeToDelete = nodeStore.getNode(nodeId);
+  if (!nodeToDelete) {
+    console.error("Node not found for deletion:", nodeId);
+    return;
+  }
+
+  // Get all child nodes and edges to delete recursively
+  const getAllDescendants = (nodeId) => {
+    const descendants = [];
+    const edgesToNode = edges.filter(edge => edge.source === nodeId);
+    
+    // For each edge, add the target node and its descendants
+    for (const edge of edgesToNode) {
+      const childId = edge.target;
+      descendants.push(childId);
+      descendants.push(...getAllDescendants(childId));
+    }
+    
+    return descendants;
+  };
+
+  // Get all descendant nodes
+  const descendantIds = getAllDescendants(nodeId);
+  const allNodesToDelete = [nodeId, ...descendantIds];
+  
+  // Get all edges connected to these nodes
+  const edgesToDelete = edges.filter(
+    edge => allNodesToDelete.includes(edge.source) || allNodesToDelete.includes(edge.target)
+  );
+  
+  // Remove from NodeStore
+  allNodesToDelete.forEach(id => nodeStore.removeNode(id));
+  
+  // Update React state
+  setNodes(nodes => nodes.filter(node => !allNodesToDelete.includes(node.id)));
+  setEdges(edges => edges.filter(edge => 
+    !edgesToDelete.includes(edge) &&
+    !allNodesToDelete.includes(edge.source) && 
+    !allNodesToDelete.includes(edge.target)
+  ));
+  
+  // Log state after deletion
+  setTimeout(() => {
+    logState('Deleted Node and Descendants');
+  }, 100);
+};
+
 export const getNextStepId = (idCounterRef) => {
   const id = `node-${idCounterRef.current}`;
   idCounterRef.current += 1;

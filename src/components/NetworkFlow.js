@@ -21,6 +21,7 @@ import {
   createPonClickHandler, 
   createSplitterHandler, 
   createDeviceHandler,
+  deleteNodeHandler,
   getNextStepId 
 } from './NodeHandlers';
 import CustomNode from '../CustomNode';
@@ -42,6 +43,8 @@ const FlowContent = () => {
   
   // Debug state to show current state
   const [debugInfo, setDebugInfo] = useState({});
+  // State to track selected node for deletion
+  const [selectedNode, setSelectedNode] = useState(null);
 
   // React Flow state
   const [initialNodes, setInitialNodes] = useState([]);
@@ -62,6 +65,20 @@ const FlowContent = () => {
       timestamp: new Date().toISOString()
     });
   };
+
+  // Handle node deletion
+  const handleDeleteNode = useCallback((nodeId) => {
+    console.log("Deleting node:", nodeId);
+    deleteNodeHandler(
+      nodeId,
+      NodeStore,
+      nodes,
+      edges,
+      setNodes,
+      setEdges,
+      logState
+    );
+  }, [nodes, edges]);
 
   // Define onNodeUpdate first - before using it in handler functions
   const onNodeUpdate = useCallback((id, updatedData) => {
@@ -254,11 +271,54 @@ const FlowContent = () => {
     setupInitialNodes();
   };
 
+  // Find all nodes that can be deleted (OLT, ONU, ONT)
+  const getDeletableNodes = () => {
+    return nodes.filter(node => 
+      (node.data.label && 
+       (node.data.label.includes('OLT') || 
+        node.data.deviceModel === 'ONU' || 
+        node.data.deviceModel === 'ONT')
+      )
+    );
+  };
+
+  // Process nodes to include onDelete callback
+  useEffect(() => {
+    setNodes(nds => 
+      nds.map(node => ({
+        ...node,
+        data: {
+          ...node.data,
+          onDelete: handleDeleteNode
+        }
+      }))
+    );
+  }, [handleDeleteNode]);
+
   return (
     <div style={{ height: '100vh', width: '100%', backgroundColor: '#f5f5f5' }}>
       <Panel position="top-center">
         <Button color="primary" onClick={resetFlow} style={{ marginRight: '10px' }}>
           Reset Network Flow
+        </Button>
+      </Panel>
+      
+      {/* Delete Nodes Button in top-right */}
+      <Panel position="top-right">
+        <Button 
+          color="danger" 
+          style={{ margin: '10px' }}
+          onClick={() => {
+            const deletableNodes = getDeletableNodes();
+            if (deletableNodes.length > 0) {
+              // Show notification that nodes can be deleted using the delete button on each node
+              alert("Click the 'Delete' button on the OLT, ONU, or ONT nodes you want to remove.");
+            } else {
+              alert("No OLT, ONU, or ONT nodes to delete.");
+            }
+          }}
+        >
+          Delete OLT/ONU/ONT
         </Button>
       </Panel>
       

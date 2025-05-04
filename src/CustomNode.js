@@ -81,6 +81,21 @@ const CustomNode = ({ data }) => {
     }
   };
 
+  const handleDeleteClick = (e) => {
+    e.stopPropagation(); // Prevent triggering any parent click handlers
+    if (data.onDelete) {
+      data.onDelete(data.id);
+    }
+  };
+
+  // Determine if this node is eligible for deletion
+  // We want to show delete button for OLT, ONU, ONT nodes
+  const isDeletableNode = data.label && (
+    data.label.includes('OLT') || 
+    data.deviceModel === 'ONU' || 
+    data.deviceModel === 'ONT'
+  );
+
   // Simple node - just label and clickable
   if (data.nodeType === 'simple') {
     const handleClick = () => {
@@ -98,7 +113,8 @@ const CustomNode = ({ data }) => {
           borderRadius: 5, 
           width: '150px',
           backgroundColor: data.color || '#ffffff',
-          cursor: 'pointer'
+          cursor: 'pointer',
+          position: 'relative'
         }}
         onClick={handleClick}
       >
@@ -117,9 +133,36 @@ const CustomNode = ({ data }) => {
         border: '1px solid black', 
         borderRadius: 5, 
         width: '200px',
-        backgroundColor: '#f0f0f0' 
+        backgroundColor: '#f0f0f0',
+        position: 'relative'
       }}
     >
+      {isDeletableNode && (
+        <button
+          onClick={handleDeleteClick}
+          style={{
+            position: 'absolute',
+            top: '5px',
+            right: '5px',
+            backgroundColor: '#e74c3c',
+            color: 'white',
+            border: 'none',
+            borderRadius: '50%',
+            width: '20px',
+            height: '20px',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            zIndex: 10
+          }}
+        >
+          ✕
+        </button>
+      )}
+      
       <div style={{fontSize: '14px', fontWeight: 'bold', marginBottom: '5px'}}>{data.label}</div>
       
       <div style={{fontSize: '12px', marginBottom: '3px'}}>PON OP:</div>
