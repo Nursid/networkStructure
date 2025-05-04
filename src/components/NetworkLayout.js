@@ -23,9 +23,18 @@ export const getLayoutedElements = (nodes, edges, direction = 'TB') => {
 
   // Add nodes to the graph
   nodes.forEach((node) => {
+    // Special handling for JCBox and Loop nodes - slightly smaller size for aesthetics
+    let width = nodeWidth;
+    let height = nodeHeight;
+    
+    if (node.data.label === 'JC Box' || node.data.label === 'Loop') {
+      width = nodeWidth * 0.9;
+      height = nodeHeight * 0.9;
+    }
+    
     graphUtils.setNode(node.id, { 
-      width: nodeWidth, 
-      height: nodeHeight,
+      width: width, 
+      height: height,
       label: node.data.label // Add label for debugging
     });
   });

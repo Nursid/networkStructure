@@ -405,6 +405,114 @@ export const deleteNodeHandler = (
   }, 100);
 };
 
+export const createNodeOnEdge = (
+  nodeType,
+  edgeId,
+  sourceId,
+  targetId,
+  position,
+  idCounterRef,
+  nodeStore,
+  nodes,
+  edges,
+  setNodes,
+  setEdges,
+  onNodeUpdate,
+  logState
+) => {
+  if (!edgeId || !sourceId || !targetId) {
+    console.error("Missing required parameters for edge node creation");
+    return;
+  }
+
+  // Find the source and target nodes
+  const sourceNode = nodeStore.getNode(sourceId) || nodes.find(n => n.id === sourceId);
+  const targetNode = nodeStore.getNode(targetId) || nodes.find(n => n.id === targetId);
+
+  if (!sourceNode || !targetNode) {
+    console.error("Source or target node not found");
+    return;
+  }
+
+  // Generate new node ID
+  const newNodeId = getNextStepId(idCounterRef);
+
+  // Create node data based on type
+  let nodeData = {
+    id: newNodeId,
+    onUpdate: (updatedData) => onNodeUpdate(newNodeId, updatedData)
+  };
+
+  // Set label and fields based on node type
+  if (nodeType === 'JCBox') {
+    nodeData.label = 'JC Box';
+    nodeData.nodeType = 'detail';
+    nodeData.color = '#f39c12';  // Orange color for JCBox
+    // Preset empty fields for JCBox
+    nodeData.inputOp = '';
+    nodeData.opPrevious = '';
+    nodeData.opCurrent = '';
+    nodeData.distance = '';
+    nodeData.description = '';
+  } else if (nodeType === 'Loop') {
+    nodeData.label = 'Loop';
+    nodeData.nodeType = 'detail';
+    nodeData.color = '#2ecc71';  // Green color for Loop
+    // Preset empty fields for Loop
+    nodeData.distance = '';
+    nodeData.loop = '';
+    nodeData.description = '';
+  }
+
+  // Create the new node
+  const newNode = {
+    id: newNodeId,
+    type: 'CustomNode',
+    data: nodeData,
+    position: {
+      // Use the clicked position or calculate mid-point between source and target
+      x: position?.x || (sourceNode.position.x + targetNode.position.x) / 2,
+      y: position?.y || (sourceNode.position.y + targetNode.position.y) / 2
+    },
+    targetPosition: 'top',
+    sourcePosition: 'bottom'
+  };
+
+  // Add to nodeStore
+  nodeStore.addNode(newNode);
+
+  // Create two new edges
+  const sourceToNewEdge = {
+    id: `e-${sourceId}-${newNodeId}`,
+    source: sourceId,
+    target: newNodeId,
+    type: 'smoothstep',
+    animated: true
+  };
+
+  const newToTargetEdge = {
+    id: `e-${newNodeId}-${targetId}`,
+    source: newNodeId,
+    target: targetId,
+    type: 'smoothstep',
+    animated: true
+  };
+
+  // Update React state
+  setNodes(prevNodes => [...prevNodes, newNode]);
+  
+  // Replace the old edge with two new edges
+  setEdges(prevEdges => {
+    const filteredEdges = prevEdges.filter(e => e.id !== edgeId);
+    return [...filteredEdges, sourceToNewEdge, newToTargetEdge];
+  });
+
+  // Log state after update
+  setTimeout(() => {
+    logState(`Added ${nodeType} on edge`);
+  }, 100);
+};
+
 export const getNextStepId = (idCounterRef) => {
   const id = `node-${idCounterRef.current}`;
   idCounterRef.current += 1;

@@ -1,0 +1,41 @@
+/* NetworkStyles.css */
+
+/* Style for edges to indicate clickability */
+.react-flow__edge {
+  cursor: pointer;
+  transition: stroke 0.2s ease;
+}
+
+.react-flow__edge:hover {
+  stroke-width: 3;
+}
+
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: #f39c12; /* Orange highlight color */
+}
+
+/* Style for edge context menu */
+.edge-context-menu {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+  animation: fade-in 0.2s ease;
+}
+
+.edge-context-menu div:hover {
+  background-color: #f8f9fa;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Style for custom nodes */
+.react-flow__node-CustomNode {
+  transition: all 0.2s ease;
+}
+
+.react-flow__node-CustomNode:hover {
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
+} 

@@ -13,6 +13,10 @@ const CustomNode = ({ data }) => {
     fms: data.fms || '',
     fmsPort: data.fmsPort || '',
     description: data.description || '',
+    inputOp: data.inputOp || '',
+    opPrevious: data.opPrevious || '',
+    opCurrent: data.opCurrent || '',
+    loop: data.loop || ''
   });
 
   const [showSplitterOptions, setShowSplitterOptions] = useState(false);
@@ -89,12 +93,10 @@ const CustomNode = ({ data }) => {
   };
 
   // Determine if this node is eligible for deletion
-  // We want to show delete button for OLT, ONU, ONT nodes
-  const isDeletableNode = data.label && (
-    data.label.includes('OLT') || 
-    data.deviceModel === 'ONU' || 
-    data.deviceModel === 'ONT'
-  );
+  // We want to show delete button on each node except PON and EPON nodes
+  const isDeletableNode = data.label && 
+    !data.label.includes('PON') && 
+    !data.label.includes('EPON');
 
   // Simple node - just label and clickable
   if (data.nodeType === 'simple') {
@@ -125,7 +127,171 @@ const CustomNode = ({ data }) => {
     );
   }
 
-  // Detailed node with form fields
+  // JCBox node
+  if (data.label === 'JC Box') {
+    return (
+      <div
+        style={{ 
+          padding: 10, 
+          border: '1px solid black', 
+          borderRadius: 5, 
+          width: '200px',
+          backgroundColor: data.color || '#f39c12',
+          position: 'relative'
+        }}
+      >
+        {isDeletableNode && (
+          <button
+            onClick={handleDeleteClick}
+            style={{
+              position: 'absolute',
+              top: '5px',
+              right: '5px',
+              backgroundColor: '#e74c3c',
+              color: 'white',
+              border: 'none',
+              borderRadius: '50%',
+              width: '20px',
+              height: '20px',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              zIndex: 10
+            }}
+          >
+            ✕
+          </button>
+        )}
+        
+        <div style={{fontSize: '14px', fontWeight: 'bold', marginBottom: '5px'}}>{data.label}</div>
+        
+        <div style={{fontSize: '12px', marginBottom: '3px'}}>Input OP:</div>
+        <input
+          type="text"
+          name="inputOp"
+          value={fields.inputOp}
+          onChange={handleFieldChange}
+          style={{ marginBottom: '5px', width: '100%', padding: '2px', fontSize: '11px' }}
+        />
+
+        <div style={{fontSize: '12px', marginBottom: '3px'}}>OP Previous:</div>
+        <input
+          type="text"
+          name="opPrevious"
+          value={fields.opPrevious}
+          onChange={handleFieldChange}
+          style={{ marginBottom: '5px', width: '100%', padding: '2px', fontSize: '11px' }}
+        />
+
+        <div style={{fontSize: '12px', marginBottom: '3px'}}>OP Current:</div>
+        <input
+          type="text"
+          name="opCurrent"
+          value={fields.opCurrent}
+          onChange={handleFieldChange}
+          style={{ marginBottom: '5px', width: '100%', padding: '2px', fontSize: '11px' }}
+        />
+
+        <div style={{fontSize: '12px', marginBottom: '3px'}}>Distance (m):</div>
+        <input
+          type="text"
+          name="distance"
+          value={fields.distance}
+          onChange={handleFieldChange}
+          style={{ marginBottom: '5px', width: '100%', padding: '2px', fontSize: '11px' }}
+        />
+
+        <div style={{fontSize: '12px', marginBottom: '3px'}}>Description:</div>
+        <textarea
+          name="description"
+          value={fields.description}
+          onChange={handleFieldChange}
+          style={{ marginBottom: '5px', width: '100%', padding: '2px', fontSize: '11px', minHeight: '40px' }}
+        />
+
+        <Handle type="target" position="top" />
+        <Handle type="source" position="bottom" />
+      </div>
+    );
+  }
+
+  // Loop node
+  if (data.label === 'Loop') {
+    return (
+      <div
+        style={{ 
+          padding: 10, 
+          border: '1px solid black', 
+          borderRadius: 5, 
+          width: '200px',
+          backgroundColor: data.color || '#2ecc71',
+          position: 'relative'
+        }}
+      >
+        {isDeletableNode && (
+          <button
+            onClick={handleDeleteClick}
+            style={{
+              position: 'absolute',
+              top: '5px',
+              right: '5px',
+              backgroundColor: '#e74c3c',
+              color: 'white',
+              border: 'none',
+              borderRadius: '50%',
+              width: '20px',
+              height: '20px',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              zIndex: 10
+            }}
+          >
+            ✕
+          </button>
+        )}
+        
+        <div style={{fontSize: '14px', fontWeight: 'bold', marginBottom: '5px'}}>{data.label}</div>
+        
+        <div style={{fontSize: '12px', marginBottom: '3px'}}>Distance (m):</div>
+        <input
+          type="text"
+          name="distance"
+          value={fields.distance}
+          onChange={handleFieldChange}
+          style={{ marginBottom: '5px', width: '100%', padding: '2px', fontSize: '11px' }}
+        />
+
+        <div style={{fontSize: '12px', marginBottom: '3px'}}>Loop:</div>
+        <input
+          type="text"
+          name="loop"
+          value={fields.loop}
+          onChange={handleFieldChange}
+          style={{ marginBottom: '5px', width: '100%', padding: '2px', fontSize: '11px' }}
+        />
+
+        <div style={{fontSize: '12px', marginBottom: '3px'}}>Description:</div>
+        <textarea
+          name="description"
+          value={fields.description}
+          onChange={handleFieldChange}
+          style={{ marginBottom: '5px', width: '100%', padding: '2px', fontSize: '11px', minHeight: '40px' }}
+        />
+
+        <Handle type="target" position="top" />
+        <Handle type="source" position="bottom" />
+      </div>
+    );
+  }
+
+  // Detailed node with form fields (default case)
   return (
     <div
       style={{ 
@@ -133,7 +299,7 @@ const CustomNode = ({ data }) => {
         border: '1px solid black', 
         borderRadius: 5, 
         width: '200px',
-        backgroundColor: '#f0f0f0',
+        backgroundColor: data.color || '#f0f0f0',
         position: 'relative'
       }}
     >
@@ -213,7 +379,7 @@ const CustomNode = ({ data }) => {
             onChange={handleDeviceSelect}
             style={{ marginBottom: '5px', width: '100%', padding: '2px', fontSize: '11px' }}
           >
-            <option value="" disabled>Select device</option>
+            <option value="" >Select device</option>
             <option value="ONU">ONU</option>
             <option value="ONT">ONT</option>
           </select>
