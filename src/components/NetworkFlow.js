@@ -30,6 +30,7 @@ import {
 } from './NodeHandlers';
 import CustomNode from '../CustomNode';
 import EdgeContextMenu from './EdgeContextMenu';
+import PonSelector from './PonSelector';
 
 // Main NetworkFlow component wrapped with ReactFlowProvider
 const NetworkFlow = () => {
@@ -53,6 +54,8 @@ const FlowContent = () => {
   
   // State for context menu
   const [contextMenu, setContextMenu] = useState(null);
+  // State for PON selector
+  const [ponSelector, setPonSelector] = useState(null);
 
   // React Flow state
   const [initialNodes, setInitialNodes] = useState([]);
@@ -145,6 +148,118 @@ const FlowContent = () => {
       logState
     );
   };
+
+  // Handle PON rewiring
+  const handleRewirePon = useCallback((nodeId, newPonId) => {
+    // Get the node to rewire
+    const nodeToRewire = nodes.find(n => n.id === nodeId);
+    if (!nodeToRewire || !nodeToRewire.data.ponId) {
+      console.error("Cannot find node to rewire or node does not have ponId");
+      return;
+    }
+
+    const currentPonId = nodeToRewire.data.ponId;
+    
+    // Don't do anything if the PON isn't changing
+    if (currentPonId === newPonId) {
+      console.log("Same PON selected, no changes needed");
+      return;
+    }
+    
+    console.log(`Rewiring node ${nodeId} from PON ${currentPonId} to PON ${newPonId}`);
+    
+    // Find the edge connecting the node to its current PON
+    const oldEdge = edges.find(e => 
+      e.source === currentPonId && e.target === nodeId
+    );
+    
+    if (!oldEdge) {
+      console.error("Cannot find edge connecting node to current PON");
+      return;
+    }
+    
+    // Create a new edge from the new PON to the node
+    const newEdge = {
+      id: `e-${newPonId}-${nodeId}`,
+      source: newPonId,
+      target: nodeId,
+      type: 'smoothstep',
+      animated: true
+    };
+    
+    // Update the node's ponId reference
+    onNodeUpdate(nodeId, { ponId: newPonId });
+    
+    // Update the label to reflect the new PON connection
+    const oldLabel = nodeToRewire.data.label;
+    let newLabel = oldLabel;
+    
+    // Extract PON number from the new PON ID
+    let newPonNumber;
+    if (typeof newPonId === 'string' && newPonId.includes('-')) {
+      newPonNumber = newPonId.split('-')[1];
+    } else {
+      const newPonNode = nodes.find(n => n.id === newPonId);
+      const match = newPonNode?.data?.label?.match(/PON (\d+)/);
+      newPonNumber = match ? match[1] : 'unknown';
+    }
+    
+    // Update the label to reflect the new PON
+    if (oldLabel.includes('PON')) {
+      const ponRegex = /PON \d+/;
+      newLabel = oldLabel.replace(ponRegex, `PON ${newPonNumber}`);
+      onNodeUpdate(nodeId, { label: newLabel });
+    }
+    
+    // Remove the old edge and add the new one
+    setEdges(eds => {
+      const filteredEdges = eds.filter(e => e.id !== oldEdge.id);
+      return [...filteredEdges, newEdge];
+    });
+    
+    // Log state after update
+    setTimeout(() => {
+      logState('Rewired Node to New PON');
+    }, 100);
+    
+  }, [nodes, edges, onNodeUpdate]);
+
+  // Function to open the PON selector
+  const openPonSelector = useCallback((event, nodeId, clientX, clientY) => {
+    // Prevent event propagation
+    event.stopPropagation();
+    
+    // Get all available PON nodes
+    const ponNodes = nodes.filter(node => 
+      node.data.label && 
+      node.data.label.includes('PON') && 
+      !node.data.label.includes('EPON')
+    );
+    
+    // Get the current PON ID from the node
+    const nodeToRewire = nodes.find(n => n.id === nodeId);
+    const currentPonId = nodeToRewire?.data?.ponId;
+    
+    if (!currentPonId) {
+      console.error("Cannot find current PON ID for node");
+      return;
+    }
+    
+    // Format the PON options
+    const ponOptions = ponNodes.map(ponNode => ({
+      id: ponNode.id,
+      label: ponNode.data.label
+    }));
+    
+    // Set the PON selector state
+    setPonSelector({
+      x: clientX,
+      y: clientY,
+      nodeId,
+      currentPonId,
+      ponOptions
+    });
+  }, [nodes]);
 
   // Set up initial EPON and PON nodes when component mounts
   useEffect(() => {
@@ -289,18 +404,34 @@ const FlowContent = () => {
     );
   };
 
-  // Process nodes to include onDelete callback
+  // Find all nodes that are OLT nodes (have OLT in their label)
+  const getOltNodes = () => {
+    return nodes.filter(node => 
+      node.data.label && 
+      node.data.label.includes('OLT') &&
+      node.data.ponId // Must have a ponId to be rewirable
+    );
+  };
+
+  // Process nodes to include onDelete callback and openPonSelector
   useEffect(() => {
     setNodes(nds => 
-      nds.map(node => ({
-        ...node,
-        data: {
-          ...node.data,
-          onDelete: handleDeleteNode
-        }
-      }))
+      nds.map(node => {
+        // Check if this is an OLT node (has OLT in label and a ponId)
+        const isOltNode = node.data?.label?.includes('OLT') && node.data?.ponId;
+        
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            onDelete: handleDeleteNode,
+            // Only add the openPonSelector callback to OLT nodes
+            ...(isOltNode && { openPonSelector })
+          }
+        };
+      })
     );
-  }, [handleDeleteNode]);
+  }, [handleDeleteNode, openPonSelector]);
 
   // Handle edge click to open context menu
   const onEdgeClick = useCallback((event, edge) => {
@@ -365,9 +496,21 @@ const FlowContent = () => {
     setContextMenu(null);
   }, [contextMenu, nodes, edges, onNodeUpdate]);
 
-  // Close context menu when clicking elsewhere
+  // Handle PON selector selection
+  const handlePonSelectorSelect = useCallback((newPonId) => {
+    if (!ponSelector) return;
+    
+    // Rewire the node to the new PON
+    handleRewirePon(ponSelector.nodeId, newPonId);
+    
+    // Close the PON selector
+    setPonSelector(null);
+  }, [ponSelector, handleRewirePon]);
+
+  // Close menus when clicking elsewhere
   const onPaneClick = useCallback(() => {
     setContextMenu(null);
+    setPonSelector(null);
   }, []);
 
   return (
@@ -404,6 +547,13 @@ const FlowContent = () => {
         </div>
       </Panel>
       
+      {/* PON rewiring tooltip */}
+      <Panel position="bottom-left" style={{ marginBottom: '20px', marginLeft: '20px', backgroundColor: 'rgba(0,0,0,0.7)', color: 'white', padding: '8px 12px', borderRadius: '5px' }}>
+        <div style={{ fontSize: '13px' }}>
+          <span role="img" aria-label="tip">💡</span> Tip: Use the "Change PON" button on OLT nodes to rewire them
+        </div>
+      </Panel>
+      
       {/* Debug panel */}
       <DebugPanel debugInfo={debugInfo} />
       
@@ -414,6 +564,18 @@ const FlowContent = () => {
           y={contextMenu.y}
           onSelect={handleContextMenuSelect}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+      
+      {/* PON selector for rewiring */}
+      {ponSelector && (
+        <PonSelector
+          x={ponSelector.x}
+          y={ponSelector.y}
+          ponOptions={ponSelector.ponOptions}
+          currentPonId={ponSelector.currentPonId}
+          onSelect={handlePonSelectorSelect}
+          onClose={() => setPonSelector(null)}
         />
       )}
       

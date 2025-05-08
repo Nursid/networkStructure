@@ -91,12 +91,25 @@ const CustomNode = ({ data }) => {
       data.onDelete(data.id);
     }
   };
+  
+  const handleChangePonClick = (e) => {
+    e.stopPropagation(); // Prevent triggering any parent click handlers
+    if (data.openPonSelector) {
+      data.openPonSelector(e, data.id, e.clientX, e.clientY);
+    }
+  };
 
   // Determine if this node is eligible for deletion
   // We want to show delete button on each node except PON and EPON nodes
   const isDeletableNode = data.label && 
     !data.label.includes('PON') && 
     !data.label.includes('EPON');
+    
+  // Determine if this is an OLT node that can be rewired
+  const isOltNode = data.label && 
+    data.label.includes('OLT') && 
+    data.ponId && 
+    data.openPonSelector;
 
   // Simple node - just label and clickable
   if (data.nodeType === 'simple') {
@@ -326,6 +339,16 @@ const CustomNode = ({ data }) => {
       {/* )} */}
       
       <div style={{fontSize: '14px', fontWeight: 'bold', marginBottom: '5px'}}>{data.label}</div>
+      
+      {/* Add Change PON button for OLT nodes */}
+      {isOltNode && (
+        <div 
+          className="change-pon-button"
+          onClick={handleChangePonClick}
+        >
+          Change PON
+        </div>
+      )}
       
       <div style={{fontSize: '12px', marginBottom: '3px'}}>PON OP:</div>
       <input

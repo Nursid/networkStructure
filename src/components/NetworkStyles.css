@@ -25,6 +25,38 @@
   background-color: #f8f9fa;
 }
 
+/* Style for PON selector menu */
+.pon-selector {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+  animation: fade-in 0.2s ease;
+}
+
+.pon-selector div:hover {
+  background-color: #f8f9fa;
+}
+
+/* Change PON Button */
+.change-pon-button {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  padding: 2px 5px;
+  font-size: 10px;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: all 0.2s ease;
+  margin-top: 3px;
+  text-align: center;
+}
+
+.change-pon-button:hover {
+  opacity: 1;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(-5px); }
   to { opacity: 1; transform: translateY(0); }
