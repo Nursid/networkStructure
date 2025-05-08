@@ -140,7 +140,6 @@ const CustomNode = ({ data }) => {
           position: 'relative'
         }}
       >
-        {isDeletableNode && (
           <button
             onClick={handleDeleteClick}
             style={{
@@ -164,7 +163,6 @@ const CustomNode = ({ data }) => {
           >
             ✕
           </button>
-        )}
         
         <div style={{fontSize: '14px', fontWeight: 'bold', marginBottom: '5px'}}>{data.label}</div>
         
@@ -231,7 +229,6 @@ const CustomNode = ({ data }) => {
           position: 'relative'
         }}
       >
-        {isDeletableNode && (
           <button
             onClick={handleDeleteClick}
             style={{
@@ -255,7 +252,6 @@ const CustomNode = ({ data }) => {
           >
             ✕
           </button>
-        )}
         
         <div style={{fontSize: '14px', fontWeight: 'bold', marginBottom: '5px'}}>{data.label}</div>
         
@@ -303,7 +299,7 @@ const CustomNode = ({ data }) => {
         position: 'relative'
       }}
     >
-      {isDeletableNode && (
+      {/* {isDeletableNode && ( */}
         <button
           onClick={handleDeleteClick}
           style={{
@@ -327,7 +323,7 @@ const CustomNode = ({ data }) => {
         >
           ✕
         </button>
-      )}
+      {/* )} */}
       
       <div style={{fontSize: '14px', fontWeight: 'bold', marginBottom: '5px'}}>{data.label}</div>
       

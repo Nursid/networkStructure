@@ -38,4 +38,19 @@
 .react-flow__node-CustomNode:hover {
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
   transform: translateY(-2px);
+}
+
+/* Edge styling */
+.react-flow__edge-path {
+  stroke-width: 3px; /* Increased from default (usually 1px) */
+}
+
+/* Animate edges with thicker line */
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-width: 3px;
+}
+
+/* For selected edges */
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke-width: 10px;
 } 
