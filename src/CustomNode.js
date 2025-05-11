@@ -345,6 +345,17 @@ const CustomNode = ({ data }) => {
         <div 
           className="change-pon-button"
           onClick={handleChangePonClick}
+          style={{
+            backgroundColor: '#3498db',
+            color: 'white',
+            padding: '5px 8px',
+            borderRadius: '4px',
+            fontSize: '11px',
+            textAlign: 'center',
+            marginBottom: '8px',
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
         >
           Change PON
         </div>

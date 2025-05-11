@@ -13,6 +13,10 @@ const PonSelector = ({
     e.stopPropagation();
   };
 
+  // Find the current PON label
+  const currentPon = ponOptions.find(p => p.id === currentPonId);
+  const currentPonLabel = currentPon ? currentPon.label : 'Unknown';
+
   return (
     <div 
       className="pon-selector" 
@@ -34,7 +38,7 @@ const PonSelector = ({
       </div>
       
       <div style={{ fontSize: '12px', marginBottom: '8px' }}>
-        Current: <span style={{ fontWeight: 'bold' }}>{ponOptions.find(p => p.id === currentPonId)?.label || 'Unknown'}</span>
+        Current: <span style={{ fontWeight: 'bold' }}>{currentPonLabel}</span>
       </div>
       
       <div style={{ fontSize: '12px', marginBottom: '5px' }}>Select new PON:</div>
@@ -45,7 +49,7 @@ const PonSelector = ({
             key={pon.id}
             style={{
               padding: '8px 12px',
-              cursor: 'pointer',
+              cursor: pon.id === currentPonId ? 'default' : 'pointer',
               backgroundColor: pon.id === currentPonId ? '#f8f9fa' : 'transparent',
               color: pon.id === currentPonId ? '#999' : 'inherit',
               borderRadius: '4px',

@@ -40,21 +40,24 @@
 .change-pon-button {
   background-color: #3498db;
   color: white;
-  border: none;
-  border-radius: 3px;
-  padding: 2px 5px;
-  font-size: 10px;
-  cursor: pointer;
-  opacity: 0.8;
-  transition: all 0.2s ease;
-  margin-top: 3px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 11px;
   text-align: center;
+  margin-bottom: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s ease;
 }
 
 .change-pon-button:hover {
-  opacity: 1;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background-color: #2980b9;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.change-pon-button:active {
+  background-color: #2471a3;
+  transform: translateY(1px);
 }
 
 @keyframes fade-in {

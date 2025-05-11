@@ -9,23 +9,21 @@ import {
   Background,
   useNodesState,
   useEdgesState,
+  useReactFlow
 } from '@xyflow/react';
 import { Button } from 'reactstrap';
 import '@xyflow/react/dist/style.css';
-
-// Import custom styles for edge interactivity
 import './NetworkStyles.css';
 
 // Import components
 import DebugPanel from './DebugPanel';
 import NodeStore from './NodeStore';
-import { getLayoutedElements, nodeWidth, nodeHeight } from './NetworkLayout';
+import { getLayoutedElements, } from './NetworkLayout';
 import { 
   createPonClickHandler, 
   createSplitterHandler, 
   createDeviceHandler,
   deleteNodeHandler,
-  getNextStepId,
   createNodeOnEdge
 } from './NodeHandlers';
 import CustomNode from '../CustomNode';
@@ -44,13 +42,14 @@ const NetworkFlow = () => {
 // The main content of the flow component
 const FlowContent = () => {
   const nodeTypes = useMemo(() => ({ CustomNode: CustomNode }), []);
+  const [rfInstance, setRfInstance] = useState(null);
   // Use useRef for idCounter to maintain consistent reference
   const idCounterRef = useRef(1);
   
   // Debug state to show current state
   const [debugInfo, setDebugInfo] = useState({});
   // State to track selected node for deletion
-  const [selectedNode, setSelectedNode] = useState(null);
+  // const [selectedNode, setSelectedNode] = useState(null);
   
   // State for context menu
   const [contextMenu, setContextMenu] = useState(null);
@@ -62,6 +61,29 @@ const FlowContent = () => {
   const [initialEdges, setInitialEdges] = useState([]);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const { setViewport } = useReactFlow();
+  // Suppress ResizeObserver loop warning
+  useEffect(() => {
+    // Save the original console error function
+    const originalConsoleError = console.error;
+    
+    // Override console.error to suppress specific ResizeObserver warning
+    console.error = (...args) => {
+      if (args[0]?.includes?.('ResizeObserver loop') || 
+          args[0]?.message?.includes?.('ResizeObserver loop') ||
+          (typeof args[0] === 'string' && args[0].includes('ResizeObserver loop'))) {
+        // Don't log the ResizeObserver warning
+        return;
+      }
+      // Log all other errors normally
+      originalConsoleError(...args);
+    };
+    
+    // Cleanup function to restore original console.error when component unmounts
+    return () => {
+      console.error = originalConsoleError;
+    };
+  }, []);
   
   // Debugging helper
   const logState = (action) => {
@@ -101,15 +123,24 @@ const FlowContent = () => {
     // Also update in store
     const node = NodeStore.getNode(id);
     if (node) {
+      // Ensure we're updating ponId correctly for rewiring operations
+      if (updatedData.ponId) {
+        console.log(`Updating node ${id} with new ponId: ${updatedData.ponId}`);
+      }
       node.data = { ...node.data, ...updatedData };
+    } else {
+      console.warn(`Node ${id} not found in store during update`);
     }
     
     setNodes((nds) =>
-      nds.map((node) =>
-        node.id === id
-          ? { ...node, data: { ...node.data, ...updatedData } }
-          : node
-      )
+      nds.map((node) => {
+        if (node.id === id) {
+          // Create a new data object with the updated properties
+          const updatedNodeData = { ...node.data, ...updatedData };
+          return { ...node, data: updatedNodeData };
+        }
+        return node;
+      })
     );
   }, []);
 
@@ -168,15 +199,8 @@ const FlowContent = () => {
     
     console.log(`Rewiring node ${nodeId} from PON ${currentPonId} to PON ${newPonId}`);
     
-    // Find the edge connecting the node to its current PON
-    const oldEdge = edges.find(e => 
-      e.source === currentPonId && e.target === nodeId
-    );
-    
-    if (!oldEdge) {
-      console.error("Cannot find edge connecting node to current PON");
-      return;
-    }
+    // Find all edges where this node is the target (incoming edges)
+    const incomingEdges = edges.filter(e => e.target === nodeId);
     
     // Create a new edge from the new PON to the node
     const newEdge = {
@@ -210,10 +234,41 @@ const FlowContent = () => {
       newLabel = oldLabel.replace(ponRegex, `PON ${newPonNumber}`);
       onNodeUpdate(nodeId, { label: newLabel });
     }
+
+    // Update all child nodes recursively to ensure they reference the same PON
+    const updateChildNodes = (parentId, ponId, ponNumber) => {
+      // Find all edges where this parent is the source
+      const childEdges = edges.filter(e => e.source === parentId);
+      
+      // For each child, update its ponId and label
+      childEdges.forEach(edge => {
+        const childId = edge.target;
+        const childNode = nodes.find(n => n.id === childId);
+        
+        if (childNode) {
+          // Update child node ponId
+          onNodeUpdate(childId, { ponId: ponId });
+          
+          // Update child node label
+          if (childNode.data.label && childNode.data.label.includes('PON')) {
+            const ponRegex = /PON \d+/;
+            const newChildLabel = childNode.data.label.replace(ponRegex, `PON ${ponNumber}`);
+            onNodeUpdate(childId, { label: newChildLabel });
+          }
+          
+          // Recursively update children of this child
+          updateChildNodes(childId, ponId, ponNumber);
+        }
+      });
+    };
     
-    // Remove the old edge and add the new one
+    // Start the recursive update from the rewired node
+    updateChildNodes(nodeId, newPonId, newPonNumber);
+    
+    // Remove all incoming edges and add the new one
     setEdges(eds => {
-      const filteredEdges = eds.filter(e => e.id !== oldEdge.id);
+      // Keep all edges that don't have this node as a target
+      const filteredEdges = eds.filter(e => !incomingEdges.some(ie => ie.id === e.id));
       return [...filteredEdges, newEdge];
     });
     
@@ -232,8 +287,7 @@ const FlowContent = () => {
     // Get all available PON nodes
     const ponNodes = nodes.filter(node => 
       node.data.label && 
-      node.data.label.includes('PON') && 
-      !node.data.label.includes('EPON')
+      (node.data.label.includes('PON') && !node.data.label.includes('EPON'))
     );
     
     // Get the current PON ID from the node
@@ -282,7 +336,26 @@ const FlowContent = () => {
   // Apply layout and update the flow when nodes or edges change
   useEffect(() => {
     if (nodes.length > 0 && edges.length > 0) {
-      applyLayout();
+      // Use a ref to track if we're already calculating layout
+      const layoutTimeoutRef = { current: null };
+      
+      // Clear any existing timeout
+      if (layoutTimeoutRef.current) {
+        clearTimeout(layoutTimeoutRef.current);
+      }
+      
+      // Debounce layout calculations to reduce ResizeObserver calls
+      layoutTimeoutRef.current = setTimeout(() => {
+        applyLayout();
+        layoutTimeoutRef.current = null;
+      }, 300); // Wait for 300ms of inactivity before recalculating layout
+      
+      // Clear timeout on cleanup
+      return () => {
+        if (layoutTimeoutRef.current) {
+          clearTimeout(layoutTimeoutRef.current);
+        }
+      };
     }
   }, [nodes.length, edges.length]);
 
@@ -302,15 +375,25 @@ const FlowContent = () => {
     const nodesCopy = [...nodes];
     const edgesCopy = [...edges];
     
-    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-      nodesCopy, 
-      edgesCopy
-    );
+    // Only proceed if we have nodes and edges
+    if (nodesCopy.length === 0 || edgesCopy.length === 0) {
+      return;
+    }
     
-    // Use a timeout to ensure state updates don't conflict
-    setTimeout(() => {
-      setNodes(layoutedNodes);
-    }, 10);
+    try {
+      const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+        nodesCopy, 
+        edgesCopy
+      );
+      
+      // Batch state updates by requesting animation frame
+      // This helps prevent multiple sequential DOM updates that trigger ResizeObserver
+      window.requestAnimationFrame(() => {
+        setNodes(layoutedNodes);
+      });
+    } catch (error) {
+      console.warn("Layout calculation error:", error);
+    }
   };
 
   const setupInitialNodes = () => {
@@ -405,13 +488,7 @@ const FlowContent = () => {
   };
 
   // Find all nodes that are OLT nodes (have OLT in their label)
-  const getOltNodes = () => {
-    return nodes.filter(node => 
-      node.data.label && 
-      node.data.label.includes('OLT') &&
-      node.data.ponId // Must have a ponId to be rewirable
-    );
-  };
+
 
   // Process nodes to include onDelete callback and openPonSelector
   useEffect(() => {
@@ -500,12 +577,45 @@ const FlowContent = () => {
   const handlePonSelectorSelect = useCallback((newPonId) => {
     if (!ponSelector) return;
     
+    // Find the node and current PON details for better logging
+    const nodeToMove = nodes.find(n => n.id === ponSelector.nodeId);
+    const currentPonNode = nodes.find(n => n.id === ponSelector.currentPonId);
+    const newPonNode = nodes.find(n => n.id === newPonId);
+    
+    // Get labels for user-friendly notification
+    const nodeLabel = nodeToMove?.data?.label || 'Unknown node';
+    const fromPonLabel = currentPonNode?.data?.label || 'Unknown PON';
+    const toPonLabel = newPonNode?.data?.label || 'Unknown PON';
+    
+    console.log(`Moving ${nodeLabel} from ${fromPonLabel} to ${toPonLabel}`);
+    
     // Rewire the node to the new PON
     handleRewirePon(ponSelector.nodeId, newPonId);
     
     // Close the PON selector
     setPonSelector(null);
-  }, [ponSelector, handleRewirePon]);
+    
+    // Add a temporary notification (optional)
+    const notificationDiv = document.createElement('div');
+    notificationDiv.style.position = 'fixed';
+    notificationDiv.style.top = '20px';
+    notificationDiv.style.left = '50%';
+    notificationDiv.style.transform = 'translateX(-50%)';
+    notificationDiv.style.backgroundColor = 'rgba(46, 204, 113, 0.9)';
+    notificationDiv.style.color = 'white';
+    notificationDiv.style.padding = '10px 20px';
+    notificationDiv.style.borderRadius = '5px';
+    notificationDiv.style.zIndex = '1000';
+    notificationDiv.style.fontSize = '14px';
+    notificationDiv.textContent = `Successfully moved ${nodeLabel} to ${toPonLabel}`;
+    document.body.appendChild(notificationDiv);
+    
+    // Remove the notification after 3 seconds
+    setTimeout(() => {
+      document.body.removeChild(notificationDiv);
+    }, 3000);
+    
+  }, [ponSelector, handleRewirePon, nodes]);
 
   // Close menus when clicking elsewhere
   const onPaneClick = useCallback(() => {
@@ -513,11 +623,42 @@ const FlowContent = () => {
     setPonSelector(null);
   }, []);
 
+  const flowKey = 'example-flow';
+
+
+  const onSave = useCallback(() => {
+    if (rfInstance) {
+      const flow = rfInstance.toObject();
+      localStorage.setItem(flowKey, JSON.stringify(flow));
+    }
+  }, [rfInstance]);
+ 
+  const onRestore = useCallback(() => {
+    const restoreFlow = async () => {
+      const flow = JSON.parse(localStorage.getItem(flowKey));
+ 
+      if (flow) {
+        const { x = 0, y = 0, zoom = 1 } = flow.viewport;
+        setNodes(flow.nodes || []);
+        setEdges(flow.edges || []);
+        setViewport({ x, y, zoom });
+      }
+    };
+ 
+    restoreFlow();
+  }, [setNodes, setViewport]);
+
   return (
     <div style={{ height: '100vh', width: '100%', backgroundColor: '#f5f5f5' }}>
       <Panel position="top-center">
         <Button color="primary" onClick={resetFlow} style={{ marginRight: '10px' }}>
           Reset Network Flow
+        </Button>
+        <Button color="success" onClick={onSave}>
+          Save
+        </Button>
+        <Button color="success" onClick={onRestore}>
+          Restore
         </Button>
       </Panel>
       
@@ -589,7 +730,14 @@ const FlowContent = () => {
         onPaneClick={onPaneClick}
         connectionLineType={ConnectionLineType.SmoothStep}
         fitView
+        fitViewOptions={{ padding: 0.2, includeHiddenNodes: false }}
+        defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+        minZoom={0.2}
+        maxZoom={2}
+        onInit={setRfInstance}
         nodeTypes={nodeTypes}
+        proOptions={{ hideAttribution: true }}
+        nodesDraggable={false}
       >
         <Background variant="dots" gap={12} size={1} />
         <Controls />
