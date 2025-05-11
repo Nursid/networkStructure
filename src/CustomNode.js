@@ -87,8 +87,12 @@ const CustomNode = ({ data }) => {
 
   const handleDeleteClick = (e) => {
     e.stopPropagation(); // Prevent triggering any parent click handlers
-    if (data.onDelete) {
-      data.onDelete(data.id);
+    
+    // Show confirmation dialog before deleting
+    if (window.confirm("Are you sure you want to delete this node?")) {
+      if (data.onDelete) {
+        data.onDelete(data.id);
+      }
     }
   };
   

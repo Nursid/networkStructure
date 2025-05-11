@@ -62,6 +62,24 @@ const FlowContent = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const { setViewport } = useReactFlow();
+  
+  // Custom node change handler to update NodeStore when nodes are moved
+  const handleNodesChange = useCallback((changes) => {
+    // Apply the changes to the nodes state first
+    onNodesChange(changes);
+    
+    // Update NodeStore with new positions for dragged nodes
+    changes.forEach(change => {
+      if (change.type === 'position' && change.dragging === false) {
+        // Node dragging has completed - update NodeStore
+        const node = nodes.find(n => n.id === change.id);
+        if (node) {
+          NodeStore.updateNodePosition(change.id, change.position);
+        }
+      }
+    });
+  }, [nodes, onNodesChange]);
+  
   // Suppress ResizeObserver loop warning
   useEffect(() => {
     // Save the original console error function
@@ -628,8 +646,24 @@ const FlowContent = () => {
 
   const onSave = useCallback(() => {
     if (rfInstance) {
+      // Get the current flow state with all positions
       const flow = rfInstance.toObject();
+      
+      // Ensure nodes in the flow have correct positions from NodeStore
+      flow.nodes = flow.nodes.map(node => {
+        const storedNode = NodeStore.getNode(node.id);
+        if (storedNode && storedNode.position) {
+          return {
+            ...node,
+            position: storedNode.position
+          };
+        }
+        return node;
+      });
+      
+      // Save to localStorage
       localStorage.setItem(flowKey, JSON.stringify(flow));
+      console.log("Flow saved with node positions");
     }
   }, [rfInstance]);
  
@@ -639,14 +673,70 @@ const FlowContent = () => {
  
       if (flow) {
         const { x = 0, y = 0, zoom = 1 } = flow.viewport;
-        setNodes(flow.nodes || []);
+        
+        // Reattach callback functions to nodes before setting them
+        const restoredNodes = flow.nodes.map(node => {
+          // Create a new node with the same data but reattach callbacks
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              onUpdate: (updatedData) => onNodeUpdate(node.id, updatedData),
+              onSplitterSelect: (event, _, numChildren, splitterType) => {
+                console.log("Splitter callback with restored ID:", node.id);
+                handleSplitterSelect(event, node.id, numChildren, splitterType, node.data.ponId);
+              },
+              onDeviceSelect: (event, _, deviceType) => {
+                console.log("Device callback with restored ID:", node.id);
+                handleDeviceSelect(event, node.id, deviceType);
+              },
+              openPonSelector: node.data.ponId ? (e, nodeId, x, y) => {
+                // Get all available PON nodes
+                const ponNodes = nodes.filter(n => 
+                  n.data.label && (n.data.label.includes('PON') || n.data.label.includes('EPON'))
+                );
+                
+                setPonSelector({
+                  nodeId,
+                  x,
+                  y,
+                  currentPonId: node.data.ponId,
+                  ponOptions: ponNodes.map(pon => ({
+                    id: pon.id,
+                    label: pon.data.label
+                  }))
+                });
+              } : undefined,
+              onDelete: isDeletableNode(node) ? () => handleDeleteNode(node.id) : undefined
+            }
+          };
+        });
+        
+        // Update NodeStore with restored nodes
+        restoredNodes.forEach(node => {
+          NodeStore.addNode(node);
+        });
+        
+        setNodes(restoredNodes);
         setEdges(flow.edges || []);
         setViewport({ x, y, zoom });
+        
+        // Log state after restoration
+        setTimeout(() => {
+          logState('Restored Flow');
+        }, 100);
       }
     };
  
     restoreFlow();
-  }, [setNodes, setViewport]);
+  }, [setNodes, setViewport, handleSplitterSelect, handleDeviceSelect, onNodeUpdate, handleDeleteNode, nodes]);
+
+  // Helper function to determine if a node is deletable
+  const isDeletableNode = (node) => {
+    return node.data.label && 
+      !node.data.label.includes('PON') && 
+      !node.data.label.includes('EPON');
+  };
 
   return (
     <div style={{ height: '100vh', width: '100%', backgroundColor: '#f5f5f5' }}>
@@ -723,7 +813,7 @@ const FlowContent = () => {
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange}
+        onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onEdgeClick={onEdgeClick}
@@ -737,7 +827,7 @@ const FlowContent = () => {
         onInit={setRfInstance}
         nodeTypes={nodeTypes}
         proOptions={{ hideAttribution: true }}
-        nodesDraggable={false}
+        nodesDraggable={true}
       >
         <Background variant="dots" gap={12} size={1} />
         <Controls />

@@ -17,6 +17,11 @@ const NodeStore = {
   },
   clear: function() {
     this.nodes = {};
+  },
+  updateNodePosition: function(id, position) {
+    if (this.nodes[id]) {
+      this.nodes[id].position = position;
+    }
   }
 };
 
