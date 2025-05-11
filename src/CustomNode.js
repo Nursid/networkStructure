@@ -118,7 +118,9 @@ const CustomNode = ({ data }) => {
   // Simple node - just label and clickable
   if (data.nodeType === 'simple') {
     const handleClick = () => {
-      console.log("Node clicked - id:", data.id);
+      console.log("Node clicked - id:", data);
+
+      // return;
       if (data.onClick) {
         data.onClick(data.id);
       }

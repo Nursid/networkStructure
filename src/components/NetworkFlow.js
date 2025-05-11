@@ -520,6 +520,7 @@ const FlowContent = () => {
           data: {
             ...node.data,
             onDelete: handleDeleteNode,
+            // onClick: handlePonNodeClick(node.id),
             // Only add the openPonSelector callback to OLT nodes
             ...(isOltNode && { openPonSelector })
           }
@@ -655,12 +656,15 @@ const FlowContent = () => {
         if (storedNode && storedNode.position) {
           return {
             ...node,
-            position: storedNode.position
+            position: storedNode.position,
+            data: {
+                ...node.data,
+                onClick: () => handlePonNodeClick(node.id)
+            }
           };
         }
         return node;
       });
-      
       // Save to localStorage
       localStorage.setItem(flowKey, JSON.stringify(flow));
       console.log("Flow saved with node positions");
@@ -686,6 +690,7 @@ const FlowContent = () => {
                 console.log("Splitter callback with restored ID:", node.id);
                 handleSplitterSelect(event, node.id, numChildren, splitterType, node.data.ponId);
               },
+              onClick: () => handlePonNodeClick(node.id),
               onDeviceSelect: (event, _, deviceType) => {
                 console.log("Device callback with restored ID:", node.id);
                 handleDeviceSelect(event, node.id, deviceType);
@@ -707,7 +712,8 @@ const FlowContent = () => {
                   }))
                 });
               } : undefined,
-              onDelete: isDeletableNode(node) ? () => handleDeleteNode(node.id) : undefined
+              onDelete: isDeletableNode(node) ? () => handleDeleteNode(node.id) : undefined,
+             
             }
           };
         });
